@@ -30,4 +30,8 @@ public class User {
     public User clone() {
         return new User(this);
     }
+
+    public boolean login(String password) {
+        return this.palavraPasse.equals(password);
+    }
 }

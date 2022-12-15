@@ -7,13 +7,21 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class TaggedConnection {
 
-    private static class Frame {
+    public static class Frame {
         private final int tag;
         private final byte[] data;
 
         public Frame(int tag, byte[] data) {
             this.tag = tag;
             this.data = data;
+        }
+
+        public int getTag() {
+            return this.tag;
+        }
+
+        public byte[] getData() {
+            return this.data;
         }
     }
 

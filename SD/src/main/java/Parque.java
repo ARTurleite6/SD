@@ -1,19 +1,23 @@
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Parque {
+    public Lock lock = new ReentrantLock();
     private final Ponto localizacao;
     private int numeroTrotinetes;
     private boolean recompensa;
-    private final List<Ponto> vizinhos;
+    private final Set<Ponto> vizinhos;
 
     public Parque() {
         this.localizacao = new Ponto();
         this.numeroTrotinetes = 0;
         this.recompensa = false;
-        this.vizinhos = new ArrayList<>();
+        this.vizinhos = new HashSet<>();
     }
 
     public Parque(Ponto localizacao, int D, int N) {
@@ -27,7 +31,7 @@ public class Parque {
         this.localizacao = localizacao;
         this.numeroTrotinetes = 0;
         this.recompensa = false;
-        this.vizinhos = new ArrayList<>(vizinhos);
+        this.vizinhos = new HashSet<>(vizinhos);
     }
 
     public Parque(@NotNull Parque p) {
@@ -37,23 +41,31 @@ public class Parque {
         this.vizinhos = p.getVizinhos();
     }
 
-    private List<Ponto> loadVizinhos(int raio, int tam) {
-        List<Ponto> pontos = new ArrayList<>();
-        for(int y = this.localizacao.getY() - raio; y >= 0 && y < tam && y < this.localizacao.getY() + raio; ++y) {
-            for(int x = this.localizacao.getX() - raio; x >= 0 && x < tam && x < this.localizacao.getX() + raio; ++x) {
+    private Set<Ponto> loadVizinhos(int raio, int tam) {
+        Set<Ponto> pontos = new HashSet<>();
+        for(int y = Math.max(this.localizacao.getY() - raio, 0); y < tam && y < this.localizacao.getY() + raio; ++y) {
+            for(int x = Math.max(this.localizacao.getX(), 0); x < tam && x < this.localizacao.getX() + raio; ++x) {
                 var ponto = new Ponto(x, y);
+                System.out.println(ponto);
+                var distancia = this.localizacao.distancia(ponto);
+                System.out.println(distancia);
                 if(this.localizacao.distancia(ponto) <= raio) pontos.add(ponto);
             }
         }
+        System.out.println("pontos = " + pontos);
         return pontos;
     }
 
-    public List<Ponto> getVizinhos() {
-        return new ArrayList<>(this.vizinhos);
+    public Set<Ponto> getVizinhos() {
+        return new HashSet<>(this.vizinhos);
     }
 
     public boolean hasRecompensa() {
         return this.recompensa;
+    }
+
+    public void setRecompensa(boolean value) {
+        this.recompensa = true;
     }
 
     public Ponto getLocalizacao() {
@@ -64,4 +76,51 @@ public class Parque {
         return this.numeroTrotinetes;
     }
 
+    public boolean reservaTrotinete() {
+        if(this.numeroTrotinetes >= 1) {
+            --this.numeroTrotinetes;
+            return true;
+        }
+        else return false;
+    }
+
+    public void estacionaTrotinete() {
+        ++this.numeroTrotinetes;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Parque parque = (Parque) o;
+
+        if (getNumeroTrotinetes() != parque.getNumeroTrotinetes()) return false;
+        if (recompensa != parque.recompensa) return false;
+        if (!lock.equals(parque.lock)) return false;
+        if (!getLocalizacao().equals(parque.getLocalizacao())) return false;
+        return getVizinhos().equals(parque.getVizinhos());
+    }
+
+    @Override
+    public int hashCode() {
+        int result = lock.hashCode();
+        result = 31 * result + getLocalizacao().hashCode();
+        result = 31 * result + getNumeroTrotinetes();
+        result = 31 * result + (recompensa ? 1 : 0);
+        result = 31 * result + getVizinhos().hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        final StringBuilder sb = new StringBuilder("Parque{");
+        sb.append("lock=").append(lock);
+        sb.append(", localizacao=").append(localizacao);
+        sb.append(", numeroTrotinetes=").append(numeroTrotinetes);
+        sb.append(", recompensa=").append(recompensa);
+        sb.append(", vizinhos=").append(vizinhos);
+        sb.append('}');
+        return sb.toString();
+    }
 }
