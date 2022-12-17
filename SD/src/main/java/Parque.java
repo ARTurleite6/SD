@@ -1,4 +1,5 @@
 import org.jetbrains.annotations.NotNull;
+import utils.Ponto;
 
 import java.util.HashSet;
 import java.util.List;
@@ -43,8 +44,8 @@ public class Parque {
 
     private Set<Ponto> loadVizinhos(int raio, int tam) {
         Set<Ponto> pontos = new HashSet<>();
-        for(int y = Math.max(this.localizacao.getY() - raio, 0); y < tam && y < this.localizacao.getY() + raio; ++y) {
-            for(int x = Math.max(this.localizacao.getX(), 0); x < tam && x < this.localizacao.getX() + raio; ++x) {
+        for(int y = Math.max(this.localizacao.getY() - raio, 0); y < tam && y <= this.localizacao.getY() + raio; ++y) {
+            for(int x = Math.max(this.localizacao.getX(), 0); x < tam && x <= this.localizacao.getX() + raio; ++x) {
                 var ponto = new Ponto(x, y);
                 System.out.println(ponto);
                 var distancia = this.localizacao.distancia(ponto);

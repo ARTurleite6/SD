@@ -5,7 +5,7 @@ import java.net.Socket;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class TaggedConnection {
+public class TaggedConnection implements AutoCloseable {
 
     public static class Frame {
         private final int tag;
@@ -45,6 +45,18 @@ public class TaggedConnection {
             this.out.writeInt(frame.tag);
             this.out.writeInt(frame.data.length);
             this.out.write(frame.data);
+            this.out.flush();
+        } finally {
+            this.writeLock.unlock();
+        }
+    }
+
+    public void send(int tag, byte[] data) throws IOException {
+        try {
+            this.writeLock.lock();
+            this.out.writeInt(tag);
+            this.out.writeInt(data.length);
+            this.out.write(data);
             this.out.flush();
         } finally {
             this.writeLock.unlock();

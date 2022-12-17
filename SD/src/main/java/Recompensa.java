@@ -1,4 +1,5 @@
 import org.jetbrains.annotations.NotNull;
+import utils.Ponto;
 
 public class Recompensa {
     private final Ponto origem;

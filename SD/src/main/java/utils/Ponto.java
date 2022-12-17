@@ -1,4 +1,10 @@
+package utils;
+
 import org.jetbrains.annotations.NotNull;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 
 public class Ponto {
     private final int x;
@@ -44,7 +50,7 @@ public class Ponto {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("Ponto{");
+        final StringBuilder sb = new StringBuilder("utils.Ponto{");
         sb.append("x=").append(x);
         sb.append(", y=").append(y);
         sb.append('}');
@@ -60,5 +66,17 @@ public class Ponto {
 
     public Ponto clone() {
         return new Ponto(this);
+    }
+
+    public void serialize(@NotNull DataOutputStream dos) throws IOException {
+        dos.writeInt(this.x);
+        dos.writeInt(this.y);
+        dos.flush();
+    }
+
+    public static @NotNull Ponto deserialize(@NotNull DataInputStream dis) throws IOException {
+        int x = dis.readInt();
+        int y = dis.readInt();
+        return new Ponto(x, y);
     }
 }

@@ -1,3 +1,5 @@
+import utils.Ponto;
+
 public class Viagem {
     private final int codigo;
     private final String username;

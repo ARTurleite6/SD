@@ -3,8 +3,8 @@ import java.net.ServerSocket;
 
 public class Server {
 
-    private ServerSocket socket;
-    private Business business;
+    private final ServerSocket socket;
+    private final Business business;
 
     public Server() throws IOException {
         this.socket = new ServerSocket(8080);
@@ -12,9 +12,9 @@ public class Server {
     }
 
     public void run() throws IOException {
-        System.out.println(this.business);
         try {
             while (true) {
+                System.out.println(this.business);
                 var clientSocket = this.socket.accept();
                 new Thread(new ServerWorker(this.business, clientSocket)).start();
             }
