@@ -4,6 +4,7 @@ import utils.Ponto;
 
 import java.io.*;
 import java.net.Socket;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,6 +64,44 @@ public class ServerWorker implements Runnable {
             streamOut.flush();
             this.taggedConnection.send(data.getTag(), bytesOut.toByteArray());
         });
+
+        this.handlers.add(data -> {
+            var bytes = new ByteArrayInputStream(data.getData());
+            var stream = new DataInputStream(bytes);
+            var ponto = Ponto.deserialize(stream);
+            var viagem = this.business.reservaTrotinete(this.username, ponto);
+            var dataSend = new ByteArrayOutputStream();
+            var streamOut = new DataOutputStream(dataSend);
+            if(viagem == null) {
+               streamOut.writeInt(-1);
+            }
+            else {
+                viagem.serialize(streamOut);
+            }
+            streamOut.flush();
+            this.taggedConnection.send(data.getTag(), dataSend.toByteArray());
+        });
+
+        this.handlers.add(data -> {
+            var bytes = new ByteArrayInputStream(data.getData());
+            var streamIn = new DataInputStream(bytes);
+            int codigo = streamIn.readInt();
+            Ponto ponto = Ponto.deserialize(streamIn);
+            var viagem = this.business.estacionaTrotinete(this.username, codigo, ponto);
+            var answer = new ByteArrayOutputStream();
+            var streamOut = new DataOutputStream(answer);
+            if(viagem != null) {
+                float custo = viagem.getCusto(ponto, LocalDateTime.now());
+                streamOut.writeFloat(custo);
+                streamOut.flush();
+                this.taggedConnection.send(data.getTag(), answer.toByteArray());
+            }
+            else {
+                streamOut.writeFloat(-1);
+                streamOut.flush();
+                this.taggedConnection.send(data.getTag(), answer.toByteArray());
+            }
+        });
     }
 
     @Override
@@ -76,6 +115,7 @@ public class ServerWorker implements Runnable {
             }
         } catch (IOException e) {
             try {
+                this.business.logOut(this.username);
                 this.taggedConnection.close();
             } catch (IOException ex) {
                 throw new RuntimeException(ex);

@@ -1,8 +1,11 @@
 import org.jetbrains.annotations.NotNull;
 
+import java.util.concurrent.locks.ReentrantLock;
+
 public class User {
     private final String nome;
     private final String palavraPasse;
+    private ReentrantLock authLock = new ReentrantLock();
     private boolean autenticado;
     private Viagem viagem;
 
@@ -59,7 +62,15 @@ public class User {
     }
 
     public boolean login(String password) {
-        return !this.isAutenticado() && this.palavraPasse.equals(password);
+        try {
+            this.authLock.lock();
+            if(this.autenticado) return false;
+            if(!this.palavraPasse.equals(password)) return false;
+            this.autenticado = true;
+            return true;
+        } finally {
+            this.authLock.unlock();
+        }
     }
 
     public void logout() {

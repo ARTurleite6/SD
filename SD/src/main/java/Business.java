@@ -6,6 +6,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Business {
@@ -39,6 +40,7 @@ public class Business {
             var y = rand.nextInt(N);
             this.mapa[y][x].estacionaTrotinete();
         }
+
     }
 
     public boolean registaUtilizador(String username, String password) {
@@ -63,6 +65,18 @@ public class Business {
         }
     }
 
+    public void logOut(String username) {
+        try {
+            this.usersLock.readLock().lock();
+            var user = this.users.get(username);
+            if(user != null) {
+                user.logout();
+            }
+        } finally {
+            this.usersLock.readLock().unlock();
+        }
+    }
+
     private int geraCodigo() {
         var valido = false;
         var codigo = -1;
@@ -71,27 +85,64 @@ public class Business {
         return codigo;
     }
 
-    private boolean reservaTrotinete(String username, @NotNull Ponto p) {
-        //TODO so preciso de sinalizar a thread das recompensas caso o valor do numero de trotinetes reservada passar a ser 1
-        if(p.getX() >= N || p.getY() >= N) return false;
-        var numeroTrotinetes = -1;
-        var parque = this.mapa[p.getY()][p.getX()];
+    public Viagem estacionaTrotinete(String username, int codigo, @NotNull Ponto pontoEstacionamento) {
+        Parque parque = null;
+        if(pontoEstacionamento.getY() < 0 || pontoEstacionamento.getY() >= N || pontoEstacionamento.getX() < 0 || pontoEstacionamento.getX() >= N) return null;
         try {
-            parque.lock.lock();
-            if (!parque.reservaTrotinete()) {
-                return false;
-            }
-            numeroTrotinetes = parque.getNumeroTrotinetes();
-            this.pontolock.lock();
-            var codigo = this.geraCodigo();
-            this.usersLock.readLock().lock();
-            this.users.get(username).setViagem(new Viagem(codigo, username, p));
-            if (numeroTrotinetes == 0) this.pontoAlterado = p;
-            return true;
+        this.usersLock.readLock().lock();
+        var user = this.users.get(username);
+        if(user == null) return null;
+        var viagem = user.getViagem();
+        if(viagem == null) return null;
+        if(viagem.getCodigo() != codigo) return null;
+        user.setViagem(null);
+        parque = this.mapa[pontoEstacionamento.getY()][pontoEstacionamento.getX()];
+        parque.lock.lock();
+        parque.estacionaTrotinete();
+        this.pontolock.lock();
+        this.pontoAlterado = pontoEstacionamento;
+        return viagem;
         } finally {
-            parque.lock.unlock();
-            this.pontolock.unlock();
             this.usersLock.readLock().unlock();
+            if(parque != null) {
+                parque.lock.unlock();
+                this.pontolock.unlock();
+            }
+        }
+    }
+
+    public Viagem reservaTrotinete(String username, @NotNull Ponto p) {
+        //TODO so preciso de sinalizar a thread das recompensas caso o valor do numero de trotinetes reservada passar a ser 1
+        int x = p.getX();
+        int y = p.getY();
+        if(x < 0 || x >= N || y < 0 || y >= N) return null;
+        var parquePonto = this.mapa[y][x];
+        var vizinhosParque = new ArrayList<>(parquePonto
+                .getVizinhos()
+                .stream()
+                .sorted((p1, p2) -> Double.compare(p1.distancia(p), p2.distancia(p)))
+                .map(po -> this.mapa[po.getY()][po.getX()]).toList());
+        if(vizinhosParque.size() == 0) return null;
+
+        vizinhosParque.forEach(parque -> parque.lock.lock());
+        vizinhosParque.sort((v1, v2) -> v2.getNumeroTrotinetes() - v1.getNumeroTrotinetes());
+        Parque escolhido = vizinhosParque.get(0);
+        if(escolhido.getNumeroTrotinetes() == 0) return null;
+
+        try {
+            if (!escolhido.reservaTrotinete()) return null;
+            this.usersLock.readLock().lock();
+            var viagem = new Viagem(this.geraCodigo(), escolhido.getLocalizacao());
+            this.users.get(username).setViagem(viagem);
+            this.pontolock.lock();
+            this.pontoAlterado = escolhido.getLocalizacao();
+            return viagem;
+        } finally {
+            for(int i = 0; i < vizinhosParque.size(); ++i) {
+                vizinhosParque.get(i).lock.unlock();
+            }
+            this.usersLock.readLock().unlock();
+            this.pontolock.unlock();
         }
     }
 
