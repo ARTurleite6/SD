@@ -12,6 +12,7 @@ public class Server {
     }
 
     public void run() throws IOException {
+        new Thread(new RewardWorker(this.business)).start();
         try {
             while (true) {
                 System.out.println(this.business);

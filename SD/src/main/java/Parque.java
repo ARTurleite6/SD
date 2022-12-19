@@ -45,12 +45,12 @@ public class Parque {
     private Set<Ponto> loadVizinhos(int raio, int tam) {
         Set<Ponto> pontos = new HashSet<>();
         for(int y = Math.max(this.localizacao.getY() - raio, 0); y < tam && y <= this.localizacao.getY() + raio; ++y) {
-            for(int x = Math.max(this.localizacao.getX(), 0); x < tam && x <= this.localizacao.getX() + raio; ++x) {
+            for(int x = Math.max(this.localizacao.getX() - raio, 0); x < tam && x <= this.localizacao.getX() + raio; ++x) {
                 var ponto = new Ponto(x, y);
                 System.out.println(ponto);
                 var distancia = this.localizacao.distancia(ponto);
                 System.out.println(distancia);
-                if(this.localizacao.distancia(ponto) <= raio) pontos.add(ponto);
+                if(Double.compare(this.localizacao.distancia(ponto), raio) <= 0) pontos.add(ponto);
             }
         }
         System.out.println("pontos = " + pontos);

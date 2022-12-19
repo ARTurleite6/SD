@@ -2,28 +2,39 @@ import org.jetbrains.annotations.NotNull;
 import utils.Ponto;
 
 import java.util.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
+import java.util.concurrent.locks.*;
 import java.util.stream.Stream;
 
 public class Business {
     private static final int N = 10;
-    private static final int D = 4;
+    private static final int D = 1;
     private final Parque[][] mapa;
 
-    private final Lock pontolock = new ReentrantLock();
-    private Ponto pontoAlterado = null;
+    public final Lock pontolock = new ReentrantLock();
 
-    private ReadWriteLock usersLock = new ReentrantReadWriteLock();
+    private final Condition updateRewards = this.pontolock.newCondition();
+    public Ponto pontoAlterado = null;
+
+    private final ReadWriteLock usersLock = new ReentrantReadWriteLock();
     private final Map<String, User> users;
 
     public Business() {
         this.mapa = new Parque[N][N];
         this.users = new HashMap<>();
         this.loadMap();
+    }
+
+    public Ponto getPontoAlterado() {
+        try {
+            this.pontolock.lock();
+            return this.pontoAlterado;
+        } finally {
+            this.pontolock.unlock();
+        }
+    }
+
+    public Condition getUpdateRewards() {
+        return this.updateRewards;
     }
 
     private void loadMap() {
@@ -33,7 +44,7 @@ public class Business {
             }
         }
         var rand = new Random();
-        var numberParques = N * N;
+        var numberParques = N;
         for(int i = 0; i < numberParques; ++i) {
             //generate random number between 0 and N
             var x = rand.nextInt(N);
@@ -89,19 +100,20 @@ public class Business {
         Parque parque = null;
         if(pontoEstacionamento.getY() < 0 || pontoEstacionamento.getY() >= N || pontoEstacionamento.getX() < 0 || pontoEstacionamento.getX() >= N) return null;
         try {
-        this.usersLock.readLock().lock();
-        var user = this.users.get(username);
-        if(user == null) return null;
-        var viagem = user.getViagem();
-        if(viagem == null) return null;
-        if(viagem.getCodigo() != codigo) return null;
-        user.setViagem(null);
-        parque = this.mapa[pontoEstacionamento.getY()][pontoEstacionamento.getX()];
-        parque.lock.lock();
-        parque.estacionaTrotinete();
-        this.pontolock.lock();
-        this.pontoAlterado = pontoEstacionamento;
-        return viagem;
+            this.usersLock.readLock().lock();
+            var user = this.users.get(username);
+            if(user == null) return null;
+            var viagem = user.getViagem();
+            if(viagem == null) return null;
+            if(viagem.getCodigo() != codigo) return null;
+            user.setViagem(null);
+            parque = this.mapa[pontoEstacionamento.getY()][pontoEstacionamento.getX()];
+            parque.lock.lock();
+            this.pontolock.lock();
+            parque.estacionaTrotinete();
+            this.pontoAlterado = pontoEstacionamento;
+            this.updateRewards.signal();
+            return viagem;
         } finally {
             this.usersLock.readLock().unlock();
             if(parque != null) {
@@ -127,26 +139,33 @@ public class Business {
         vizinhosParque.forEach(parque -> parque.lock.lock());
         vizinhosParque.sort((v1, v2) -> v2.getNumeroTrotinetes() - v1.getNumeroTrotinetes());
         Parque escolhido = vizinhosParque.get(0);
-        if(escolhido.getNumeroTrotinetes() == 0) return null;
-
         try {
+            if(escolhido.getNumeroTrotinetes() == 0) return null;
+
             if (!escolhido.reservaTrotinete()) return null;
             this.usersLock.readLock().lock();
             var viagem = new Viagem(this.geraCodigo(), escolhido.getLocalizacao());
             this.users.get(username).setViagem(viagem);
             this.pontolock.lock();
-            this.pontoAlterado = escolhido.getLocalizacao();
+            if(escolhido.getNumeroTrotinetes() == 0) {
+                this.pontoAlterado = escolhido.getLocalizacao();
+                this.updateRewards.signal();
+            }
             return viagem;
         } finally {
-            for(int i = 0; i < vizinhosParque.size(); ++i) {
-                vizinhosParque.get(i).lock.unlock();
+            for (Parque parque : vizinhosParque) {
+                parque.lock.unlock();
             }
             this.usersLock.readLock().unlock();
             this.pontolock.unlock();
         }
     }
 
-    public List<Ponto> getPontosVizinhosComTrotinete(Ponto p) {
+    public Set<Ponto> getPontosVizinhoPonto(@NotNull Ponto ponto) {
+        return this.mapa[ponto.getY()][ponto.getX()].getVizinhos();
+    }
+
+    public List<Ponto> getPontosVizinhosComTrotinete(@NotNull Ponto p) {
         int x = p.getX();
         int y = p.getY();
         List<Ponto> res = new ArrayList<>();
@@ -160,6 +179,26 @@ public class Business {
             ponto.lock.unlock();
         }
         return res;
+    }
+
+    public boolean atualizaRewardsPonto(@NotNull Ponto p) {
+        var parquePonto = this.mapa[p.getY()][p.getX()];
+        var pontos = parquePonto.getVizinhos().stream().map(ponto -> this.mapa[ponto.getY()][ponto.getX()]).toList();
+        try {
+            pontos.forEach(ponto -> ponto.lock.lock());
+            boolean recompensa = true;
+            for(var parque : pontos) {
+                if (parque.getNumeroTrotinetes() != 0) {
+                    recompensa = false;
+                    break;
+                }
+            }
+            parquePonto.setRecompensa(recompensa);
+            return recompensa;
+        } finally {
+            pontos.forEach(ponto -> ponto.lock.unlock());
+        }
+
     }
 
     @Override
