@@ -70,7 +70,7 @@ public class Parque {
     }
 
     public void setRecompensa(boolean value) {
-        this.recompensa = true;
+        this.recompensa = value;
     }
 
     public Ponto getLocalizacao() {

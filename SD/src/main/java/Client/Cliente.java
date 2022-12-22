@@ -3,6 +3,7 @@ package Client;
 import connection.TaggedConnection;
 import java.io.*;
 import java.net.Socket;
+import java.util.ArrayList;
 import java.util.Scanner;
 import org.jetbrains.annotations.NotNull;
 import utils.Ponto;
@@ -148,6 +149,34 @@ public class Cliente {
               System.out.println("Estacionou a trotinete com sucesso, com um custo de viagem de " + custo);
             }
           }
+        }
+      }
+    });
+
+    menu.addOpcao("Listar recompensas com origem até distancia D de um ponto", () ->  {
+      if(this.username == null) System.out.println("Deve estar autenticado para realizar esta operacao");
+      else {
+        System.out.println("Insira o X do ponto que deseja");
+        int x = Integer.parseInt(this.scan.nextLine());
+        System.out.println("Insira o Y do ponto que deseja");
+        int y = Integer.parseInt(this.scan.nextLine());
+        var ponto = new Ponto(x, y);
+        var data = new ByteArrayOutputStream();
+        var streamOut = new DataOutputStream(data);
+        streamOut.writeInt(x);
+        streamOut.writeInt(y);
+        conn.send(6, data.toByteArray());
+        var answer = conn.receive();
+        try (var streamIn = new DataInputStream(new ByteArrayInputStream(answer.getData()))) {
+          int length = streamIn.readInt();
+          System.out.println("\n------------------Recompensas----------------------");
+          for(int i = 0; i < length; ++i) {
+            System.out.println("\nRecompensa nº" + i + ": ");
+            var pontoInicio = Ponto.deserialize(streamIn);
+            var pontoFinal = Ponto.deserialize(streamIn);
+            System.out.println("Origem = " + pontoInicio + ", Destino = " + pontoFinal);
+          }
+          System.out.println("\n---------------------------------------------------");
         }
       }
     });

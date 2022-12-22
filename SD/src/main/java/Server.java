@@ -14,7 +14,6 @@ public class Server {
     public void run() throws IOException {
         try {
             while (true) {
-                System.out.println(this.gestaoReservas);
                 var clientSocket = this.socket.accept();
                 new Thread(new ServerWorker(this.gestaoReservas, clientSocket)).start();
             }

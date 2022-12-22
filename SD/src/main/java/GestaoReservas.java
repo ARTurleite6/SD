@@ -23,9 +23,12 @@ public class GestaoReservas {
         this.gestaoRecompensas = new GestaoRecompensas(this.mapa);
         new Thread(() -> {
             try {
-                this.gestaoRecompensas.atualizaRecompensas();
+                    this.gestaoRecompensas.pontoLock.lock();
+                    this.gestaoRecompensas.atualizaRecompensas();
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
+            } finally {
+                this.gestaoRecompensas.pontoLock.unlock();
             }
         }).start();
     }
@@ -101,6 +104,7 @@ public class GestaoReservas {
             user.setViagem(null);
             parque = this.mapa[pontoEstacionamento.getY()][pontoEstacionamento.getX()];
             parque.lock.lock();
+            this.gestaoRecompensas.pontoLock.lock();
             parque.estacionaTrotinete();
             viagem.terminaViagem(pontoEstacionamento, LocalDateTime.now());
             System.out.println("preco viagem = " + viagem.getCusto());
@@ -119,6 +123,7 @@ public class GestaoReservas {
             if(parqueInicial != null) {
                 parqueInicial.lock.unlock();
             }
+            this.gestaoRecompensas.pontoLock.unlock();
         }
     }
 
@@ -141,6 +146,7 @@ public class GestaoReservas {
             if(escolhido.getNumeroTrotinetes() == 0) return null;
 
             if (!escolhido.podeReservar()) return null;
+            this.gestaoRecompensas.pontoLock.lock();
             escolhido.reservaTrotinete();
             this.gestaoRecompensas.registaAlteracao(escolhido.getLocalizacao());
             var viagem = new Viagem(this.geraCodigo(), escolhido.getLocalizacao());
@@ -152,6 +158,7 @@ public class GestaoReservas {
                 parque.lock.unlock();
             }
             this.usersLock.readLock().unlock();
+            this.gestaoRecompensas.pontoLock.unlock();
         }
     }
 
@@ -204,5 +211,36 @@ public class GestaoReservas {
         sb.append(", users=").append(users);
         sb.append('}');
         return sb.toString();
+    }
+
+    public String imprimeMapa() {
+        try {
+            this.gestaoRecompensas.pontoLock.lock();
+            final StringBuilder sb = new StringBuilder("\nmapa = ");
+            for (int i = 0; i < N; ++i) {
+                sb.append("\n").append(i + 1).append(": ");
+                for (int j = 0; j < N; ++j) {
+                    var parque = this.mapa[i][j];
+                    try {
+                        parque.lock.lock();
+                        sb.append(" (").append(parque.getNumeroTrotinetes()).append(", ").append(parque.hasRecompensa()).append(")");
+                    } finally {
+                        parque.lock.unlock();
+                    }
+                }
+            }
+            return sb.toString();
+        } finally {
+            this.gestaoRecompensas.pontoLock.unlock();
+        }
+    }
+
+    public List<Recompensa> getRecompensas(Ponto ponto) {
+        try {
+            this.gestaoRecompensas.pontoLock.lock();
+            return this.gestaoRecompensas.getRecompensas(ponto);
+        } finally {
+            this.gestaoRecompensas.pontoLock.unlock();
+        }
     }
 }

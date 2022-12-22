@@ -110,6 +110,25 @@ public class ServerWorker implements Runnable {
                 this.taggedConnection.send(data.getTag(), answer.toByteArray());
             }
         });
+        this.handlers.add(data -> {
+            var bytes = new ByteArrayInputStream(data.getData());
+            var streamIn = new DataInputStream(bytes);
+            Ponto ponto = Ponto.deserialize(streamIn);
+            List<Recompensa> res = this.gestaoReservas.getRecompensas(ponto);
+            if(res == null) res = new ArrayList<>();
+            var bytesAnswer = new ByteArrayOutputStream();
+            var answer = new DataOutputStream(bytesAnswer);
+            answer.writeInt(res.size());
+            res.forEach(recompensa -> {
+                try {
+                    recompensa.getOrigem().serialize(answer);
+                    recompensa.getDestino().serialize(answer);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
+            this.taggedConnection.send(data.getTag(), bytesAnswer.toByteArray());
+        });
     }
 
     @Override
@@ -118,6 +137,7 @@ public class ServerWorker implements Runnable {
         try {
             System.out.println("Started talking to client");
             while(true) {
+                System.out.println(this.gestaoReservas.imprimeMapa());
                 var data = this.taggedConnection.receive();
                 this.handlers.get(data.getTag() - 1).execute(data);
             }
