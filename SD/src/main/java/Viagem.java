@@ -5,26 +5,62 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 public class Viagem {
     private final int codigo;
     private final Ponto pontoInicial;
+    private Ponto pontoFinal;
     private final LocalDateTime tempoComeco;
+    private int duracao;
+    private float custo;
+    private Recompensa recompensa;
 
     public Viagem(int codigo, Ponto pontoInicial) {
         this.codigo = codigo;
         this.pontoInicial = pontoInicial;
         this.tempoComeco = LocalDateTime.now();
+        this.duracao = 0;
+        this.custo = 0;
+        this.pontoFinal = null;
+        this.recompensa = null;
     }
 
     public Viagem(@NotNull Viagem viagem) {
         this.codigo = viagem.getCodigo();
         this.pontoInicial = viagem.getPontoInicial();
+        this.pontoFinal = viagem.getPontoFinal();
         this.tempoComeco = viagem.tempoComeco;
+        this.recompensa = viagem.getRecompensa();
     }
 
-    public float getCusto(@NotNull Ponto destino, LocalDateTime t) {
-        return 0;
+    public int getDuracao() {
+        return this.duracao;
+    }
+
+    public float getCusto() {
+        return this.custo;
+    }
+
+    public Ponto getPontoFinal() {
+        return this.pontoFinal;
+    }
+
+    public void terminaViagem(Ponto pontoFinal, LocalDateTime tempoFinal) {
+        this.pontoFinal = pontoFinal;
+        this.duracao = (int) ChronoUnit.SECONDS.between(this.tempoComeco, tempoFinal);
+        float distancia = (float) this.pontoInicial.distancia(pontoFinal);
+        this.custo = (int) (distancia * 0.15);
+        this.custo += duracao * (0.15 / 60.0);
+    }
+
+    public void adicionaRecompensa() {
+        float valorRecompensa = (float) ((this.pontoInicial.distancia(this.pontoFinal) * 0.05) - (this.duracao * 0.01));
+        this.recompensa = new Recompensa(this.pontoInicial, this.pontoFinal, valorRecompensa);
+    }
+
+    public Recompensa getRecompensa() {
+        return this.recompensa;
     }
 
     public int getCodigo() {
@@ -65,18 +101,5 @@ public class Viagem {
 
     public Viagem clone() {
         return new Viagem(this);
-    }
-
-    public void serialize(@NotNull DataOutputStream dos) throws IOException {
-        dos.writeInt(this.codigo);
-        this.pontoInicial.serialize(dos);
-        dos.flush();
-    }
-
-    public static @NotNull Viagem deserialize(@NotNull DataInputStream dis) throws IOException {
-        int codigo = dis.readInt();
-        String username = dis.readUTF();
-        Ponto ponto = Ponto.deserialize(dis);
-        return new Viagem(codigo, ponto);
     }
 }

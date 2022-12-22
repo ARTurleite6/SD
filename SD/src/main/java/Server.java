@@ -4,20 +4,19 @@ import java.net.ServerSocket;
 public class Server {
 
     private final ServerSocket socket;
-    private final Business business;
+    private final GestaoReservas gestaoReservas;
 
     public Server() throws IOException {
         this.socket = new ServerSocket(8080);
-        this.business = new Business();
+        this.gestaoReservas = new GestaoReservas();
     }
 
     public void run() throws IOException {
-        new Thread(new RewardWorker(this.business)).start();
         try {
             while (true) {
-                System.out.println(this.business);
+                System.out.println(this.gestaoReservas);
                 var clientSocket = this.socket.accept();
-                new Thread(new ServerWorker(this.business, clientSocket)).start();
+                new Thread(new ServerWorker(this.gestaoReservas, clientSocket)).start();
             }
         } finally {
             this.socket.close();

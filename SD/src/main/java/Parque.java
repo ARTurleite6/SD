@@ -61,6 +61,10 @@ public class Parque {
         return new HashSet<>(this.vizinhos);
     }
 
+    public boolean isVizinho(Ponto p) {
+        return this.vizinhos.contains(p);
+    }
+
     public boolean hasRecompensa() {
         return this.recompensa;
     }
@@ -77,12 +81,12 @@ public class Parque {
         return this.numeroTrotinetes;
     }
 
-    public boolean reservaTrotinete() {
-        if(this.numeroTrotinetes >= 1) {
-            --this.numeroTrotinetes;
-            return true;
-        }
-        else return false;
+    public boolean podeReservar() {
+        return this.numeroTrotinetes > 0;
+    }
+
+    public void reservaTrotinete() {
+        --this.numeroTrotinetes;
     }
 
     public void estacionaTrotinete() {

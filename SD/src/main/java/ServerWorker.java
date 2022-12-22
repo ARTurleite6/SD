@@ -1,4 +1,3 @@
-import Client.Handler;
 import connection.TaggedConnection;
 import utils.Ponto;
 
@@ -9,14 +8,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ServerWorker implements Runnable {
-    private final Business  business;
+    private final GestaoReservas gestaoReservas;
     private final TaggedConnection taggedConnection;
     private String username;
 
     private List<ServerHandler> handlers;
 
-    public ServerWorker(Business business, Socket socket) throws IOException {
-        this.business = business;
+    public ServerWorker(GestaoReservas gestaoReservas, Socket socket) throws IOException {
+        this.gestaoReservas = gestaoReservas;
         this.taggedConnection = new TaggedConnection(socket);
         this.username = null;
         this.handlers = new ArrayList<>();
@@ -29,7 +28,7 @@ public class ServerWorker implements Runnable {
             var username = stream.readUTF();
             var password = stream.readUTF();
             System.out.println("username = " + username + " , password = " + password);
-            if (this.business.registaUtilizador(username, password)) {
+            if (this.gestaoReservas.registaUtilizador(username, password)) {
                 this.taggedConnection.send(new TaggedConnection.Frame(data.getTag(), "Registado com sucesso".getBytes()));
             } else {
                 this.taggedConnection.send(new TaggedConnection.Frame(data.getTag(), "Registado com insucesso".getBytes()));
@@ -42,7 +41,7 @@ public class ServerWorker implements Runnable {
             var username = stream.readUTF();
             var password = stream.readUTF();
             System.out.println("username = " + username + " , password = " + password);
-            if (this.business.login(username, password)) {
+            if (this.gestaoReservas.login(username, password)) {
                 this.taggedConnection.send(new TaggedConnection.Frame(data.getTag(), "Login efetuado com sucesso".getBytes()));
                 this.username = username;
             } else {
@@ -54,7 +53,7 @@ public class ServerWorker implements Runnable {
             var bytes = new ByteArrayInputStream(data.getData());
             var stream = new DataInputStream(bytes);
             var ponto = Ponto.deserialize(stream);
-            var lista = this.business.getPontosVizinhosComTrotinete(ponto);
+            var lista = this.gestaoReservas.getPontosVizinhosComTrotinete(ponto);
             var bytesOut = new ByteArrayOutputStream();
             var streamOut = new DataOutputStream(bytesOut);
             streamOut.writeInt(lista.size());
@@ -69,14 +68,15 @@ public class ServerWorker implements Runnable {
             var bytes = new ByteArrayInputStream(data.getData());
             var stream = new DataInputStream(bytes);
             var ponto = Ponto.deserialize(stream);
-            var viagem = this.business.reservaTrotinete(this.username, ponto);
+            var viagem = this.gestaoReservas.reservaTrotinete(this.username, ponto);
             var dataSend = new ByteArrayOutputStream();
             var streamOut = new DataOutputStream(dataSend);
             if(viagem == null) {
                streamOut.writeInt(-1);
             }
             else {
-                viagem.serialize(streamOut);
+                streamOut.writeInt(viagem.getCodigo());
+                viagem.getPontoInicial().serialize(streamOut);
             }
             streamOut.flush();
             this.taggedConnection.send(data.getTag(), dataSend.toByteArray());
@@ -87,12 +87,20 @@ public class ServerWorker implements Runnable {
             var streamIn = new DataInputStream(bytes);
             int codigo = streamIn.readInt();
             Ponto ponto = Ponto.deserialize(streamIn);
-            var viagem = this.business.estacionaTrotinete(this.username, codigo, ponto);
+            var viagem = this.gestaoReservas.estacionaTrotinete(this.username, codigo, ponto);
             var answer = new ByteArrayOutputStream();
             var streamOut = new DataOutputStream(answer);
             if(viagem != null) {
-                float custo = viagem.getCusto(ponto, LocalDateTime.now());
+                float custo = viagem.getCusto();
                 streamOut.writeFloat(custo);
+                var recompensa = viagem.getRecompensa();
+                if(recompensa != null) {
+                    streamOut.writeBoolean(true);
+                    streamOut.writeFloat(recompensa.getValorRecompensa());
+                }
+                else {
+                    streamOut.writeBoolean(false);
+                }
                 streamOut.flush();
                 this.taggedConnection.send(data.getTag(), answer.toByteArray());
             }
@@ -115,7 +123,7 @@ public class ServerWorker implements Runnable {
             }
         } catch (IOException e) {
             try {
-                this.business.logOut(this.username);
+                this.gestaoReservas.logOut(this.username);
                 this.taggedConnection.close();
             } catch (IOException ex) {
                 throw new RuntimeException(ex);

@@ -137,9 +137,16 @@ public class Cliente {
           if (custo < 0) {
             System.out.println("Operacao ocorreu com insucesso");
           } else {
-            System.out.println(
-                "Estacionou trotinete com sucesso, com um custo de viagem de " +
-                custo);
+            boolean hasRecompensa = streamIn.readBoolean();
+            if(hasRecompensa) {
+              float valorRecompensa = streamIn.readFloat();
+              System.out.println(
+                      "Estacionou trotinete com sucesso, com um custo de viagem de " +
+                              custo + ", sendo que a viagem possuia uma recompensa, no valor de " + valorRecompensa);
+            }
+            else {
+              System.out.println("Estacionou a trotinete com sucesso, com um custo de viagem de " + custo);
+            }
           }
         }
       }
