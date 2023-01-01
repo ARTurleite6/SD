@@ -34,7 +34,7 @@ public class Menu {
         }
     }
 
-    public void run() throws IOException {
+    public void run() throws IOException, InterruptedException {
         int choice = -1;
         while (choice != 0) {
             this.imprimeOpcoes();

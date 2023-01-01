@@ -1,5 +1,6 @@
 import org.jetbrains.annotations.NotNull;
 import utils.Ponto;
+import utils.Recompensa;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -103,26 +104,19 @@ public class GestaoReservas {
             if(viagem.getCodigo() != codigo) return null;
             user.setViagem(null);
             parque = this.mapa[pontoEstacionamento.getY()][pontoEstacionamento.getX()];
-            parque.lock.lock();
             this.gestaoRecompensas.pontoLock.lock();
+            var numeroTrotinetes = parque.getNumeroTrotinetes();
             parque.estacionaTrotinete();
             viagem.terminaViagem(pontoEstacionamento, LocalDateTime.now());
-            System.out.println("preco viagem = " + viagem.getCusto());
             parqueInicial = this.mapa[viagem.getPontoInicial().getY()][viagem.getPontoInicial().getX()];
-            parqueInicial.lock.lock();
             if(parque.hasRecompensa() && !parque.isVizinho(viagem.getPontoInicial()) && parqueInicial.getNumeroTrotinetes() > 1) {
                 viagem.adicionaRecompensa();
             }
-            this.gestaoRecompensas.registaAlteracao(pontoEstacionamento);
+            if(numeroTrotinetes == 0 || numeroTrotinetes == 1)
+                this.gestaoRecompensas.registaAlteracao(pontoEstacionamento);
             return viagem;
         } finally {
             this.usersLock.readLock().unlock();
-            if(parque != null) {
-                parque.lock.unlock();
-            }
-            if(parqueInicial != null) {
-                parqueInicial.lock.unlock();
-            }
             this.gestaoRecompensas.pontoLock.unlock();
         }
     }
@@ -135,28 +129,24 @@ public class GestaoReservas {
         var vizinhosParque = new ArrayList<>(parquePonto
                 .getVizinhos()
                 .stream()
-                .sorted((p1, p2) -> Double.compare(p1.distancia(p), p2.distancia(p)))
+                .sorted(Comparator.comparingDouble(p2 -> p2.distancia(p)))
                 .map(po -> this.mapa[po.getY()][po.getX()]).toList());
         if(vizinhosParque.size() == 0) return null;
 
-        vizinhosParque.forEach(parque -> parque.lock.lock());
         vizinhosParque.sort((v1, v2) -> v2.getNumeroTrotinetes() - v1.getNumeroTrotinetes());
         Parque escolhido = vizinhosParque.get(0);
         try {
-            if(escolhido.getNumeroTrotinetes() == 0) return null;
-
-            if (!escolhido.podeReservar()) return null;
+            var numeroAnterior = escolhido.getNumeroTrotinetes();
+            if(numeroAnterior == 0) return null;
             this.gestaoRecompensas.pontoLock.lock();
             escolhido.reservaTrotinete();
-            this.gestaoRecompensas.registaAlteracao(escolhido.getLocalizacao());
+            if(numeroAnterior == 1)
+                this.gestaoRecompensas.registaAlteracao(escolhido.getLocalizacao());
             var viagem = new Viagem(this.geraCodigo(), escolhido.getLocalizacao());
             this.usersLock.readLock().lock();
             this.users.get(username).setViagem(viagem);
             return viagem;
         } finally {
-            for (Parque parque : vizinhosParque) {
-                parque.lock.unlock();
-            }
             this.usersLock.readLock().unlock();
             this.gestaoRecompensas.pontoLock.unlock();
         }
@@ -175,9 +165,7 @@ public class GestaoReservas {
         var pontosVizinhos = this.mapa[y][x].getVizinhos();
         for(var parque : pontosVizinhos) {
             var ponto = this.mapa[parque.getY()][parque.getX()];
-            ponto.lock.lock();
             if(ponto.getNumeroTrotinetes() > 0) res.add(parque);
-            ponto.lock.unlock();
         }
         return res;
     }
@@ -221,12 +209,7 @@ public class GestaoReservas {
                 sb.append("\n").append(i + 1).append(": ");
                 for (int j = 0; j < N; ++j) {
                     var parque = this.mapa[i][j];
-                    try {
-                        parque.lock.lock();
                         sb.append(" (").append(parque.getNumeroTrotinetes()).append(", ").append(parque.hasRecompensa()).append(")");
-                    } finally {
-                        parque.lock.unlock();
-                    }
                 }
             }
             return sb.toString();
@@ -235,12 +218,19 @@ public class GestaoReservas {
         }
     }
 
+    public void registaRecebimentoRecompensa(@NotNull Ponto ponto) {
+        this.gestaoRecompensas.registaReceberAtualizacoes(ponto);
+    }
+
+    public List<Recompensa> recebeRecompensasAtualizacao(@NotNull Ponto ponto) throws InterruptedException {
+        return this.gestaoRecompensas.getAtualizacaoRecompensa(ponto);
+    }
+
+    public void cancelaRecebimentoRecompensa(@NotNull Ponto ponto) {
+        this.gestaoRecompensas.eliminaReceberAtualizacoes(ponto);
+    }
+
     public List<Recompensa> getRecompensas(Ponto ponto) {
-        try {
-            this.gestaoRecompensas.pontoLock.lock();
-            return this.gestaoRecompensas.getRecompensas(ponto);
-        } finally {
-            this.gestaoRecompensas.pontoLock.unlock();
-        }
+        return this.gestaoRecompensas.getRecompensas(ponto);
     }
 }

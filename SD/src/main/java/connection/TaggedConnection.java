@@ -25,11 +25,11 @@ public class TaggedConnection implements AutoCloseable {
         }
     }
 
-    private Socket socket;
-    private DataInputStream in;
-    private DataOutputStream out;
-    private Lock readLock;
-    private Lock writeLock;
+    private final Socket socket;
+    private final DataInputStream in;
+    private final DataOutputStream out;
+    private final Lock readLock;
+    private final Lock writeLock;
 
     public TaggedConnection(Socket socket) throws IOException {
         this.socket = socket;
@@ -65,19 +65,20 @@ public class TaggedConnection implements AutoCloseable {
 
     public Frame receive() throws IOException {
         try {
-            this.writeLock.lock();
+            this.readLock.lock();
             int tag = this.in.readInt();
             int tam = this.in.readInt();
             byte[] data = new byte[tam];
             this.in.readFully(data);
             return new Frame(tag, data);
         } finally {
-            this.writeLock.unlock();
+            this.readLock.unlock();
         }
     }
 
     public void close() throws IOException {
         this.socket.shutdownInput();
         this.socket.shutdownOutput();
+        this.socket.close();
     }
 }

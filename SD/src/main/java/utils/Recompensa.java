@@ -1,5 +1,10 @@
+package utils;
+
 import org.jetbrains.annotations.NotNull;
-import utils.Ponto;
+
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
 
 public class Recompensa {
     private final Ponto origem;
@@ -34,5 +39,18 @@ public class Recompensa {
 
     public float getValorRecompensa() {
         return valorRecompensa;
+    }
+
+    public void serialize(DataOutputStream dos) throws IOException {
+        this.origem.serialize(dos);
+        this.destino.serialize(dos);
+        dos.writeFloat(this.valorRecompensa);
+    }
+
+    public static @NotNull Recompensa deserialize(DataInputStream dis) throws IOException {
+        Ponto origem = Ponto.deserialize(dis);
+        Ponto destino = Ponto.deserialize(dis);
+        float valor = dis.readFloat();
+        return new Recompensa(origem, destino, valor);
     }
 }

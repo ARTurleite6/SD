@@ -1,24 +1,29 @@
 import connection.TaggedConnection;
 import utils.Ponto;
+import utils.Recompensa;
 
 import java.io.*;
 import java.net.Socket;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class ServerWorker implements Runnable {
     private final GestaoReservas gestaoReservas;
     private final TaggedConnection taggedConnection;
     private String username;
 
-    private List<ServerHandler> handlers;
+    private final List<ServerHandler> handlers;
+
+    private final Map<Ponto, Thread> atualizacoesCliente;
 
     public ServerWorker(GestaoReservas gestaoReservas, Socket socket) throws IOException {
         this.gestaoReservas = gestaoReservas;
         this.taggedConnection = new TaggedConnection(socket);
         this.username = null;
         this.handlers = new ArrayList<>();
+        this.atualizacoesCliente = new HashMap<>();
     }
 
     private void initHandlers() {
@@ -123,11 +128,42 @@ public class ServerWorker implements Runnable {
                 try {
                     recompensa.getOrigem().serialize(answer);
                     recompensa.getDestino().serialize(answer);
+                    answer.flush();
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
             });
             this.taggedConnection.send(data.getTag(), bytesAnswer.toByteArray());
+        });
+
+        this.handlers.add(data -> {
+            var bytes = new ByteArrayInputStream(data.getData());
+            var streamIn = new DataInputStream(bytes);
+            Ponto ponto = Ponto.deserialize(streamIn);
+            this.gestaoReservas.registaRecebimentoRecompensa(ponto);
+            var worker = new Thread(() -> {
+                try {
+                    while(true) {
+                        var ans = this.gestaoReservas.recebeRecompensasAtualizacao(ponto);
+                        System.out.println(ans);
+                        if(ans == null) continue;
+                        var byteArray = new ByteArrayOutputStream();
+                        var streamOut = new DataOutputStream(byteArray);
+                        streamOut.writeInt(ans.size());
+                        for (var recompensa : ans) {
+                            recompensa.serialize(streamOut);
+                        }
+                        streamOut.flush();
+                        this.taggedConnection.send(10, byteArray.toByteArray());
+                    }
+                } catch (InterruptedException | IOException e) {
+                    System.out.println("Deu erro");
+                    System.out.println(e.getMessage());
+                    throw new RuntimeException(e);
+                }
+            });
+            this.atualizacoesCliente.put(ponto, worker);
+            worker.start();
         });
     }
 
@@ -138,11 +174,14 @@ public class ServerWorker implements Runnable {
             System.out.println("Started talking to client");
             while(true) {
                 System.out.println(this.gestaoReservas.imprimeMapa());
+                System.out.println("Estou a receber atualizacoes nos pontos = " + this.atualizacoesCliente.keySet());
                 var data = this.taggedConnection.receive();
+                System.out.println("Ola");
                 this.handlers.get(data.getTag() - 1).execute(data);
             }
         } catch (IOException e) {
             try {
+                System.out.println("Erro");
                 this.gestaoReservas.logOut(this.username);
                 this.taggedConnection.close();
             } catch (IOException ex) {

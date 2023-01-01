@@ -71,7 +71,6 @@ public class Ponto {
     public void serialize(@NotNull DataOutputStream dos) throws IOException {
         dos.writeInt(this.x);
         dos.writeInt(this.y);
-        dos.flush();
     }
 
     public static @NotNull Ponto deserialize(@NotNull DataInputStream dis) throws IOException {

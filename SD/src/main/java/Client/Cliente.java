@@ -1,9 +1,11 @@
 package Client;
 
+import connection.Demultiplexer;
 import connection.TaggedConnection;
 import java.io.*;
 import java.net.Socket;
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 import org.jetbrains.annotations.NotNull;
 import utils.Ponto;
@@ -12,15 +14,17 @@ public class Cliente {
 
   private Socket socket;
   private Scanner scan;
+  private Map<Ponto, Thread> atualizacaoWorker;
   private String username;
 
   public Cliente(Scanner scan) throws IOException {
     this.socket = new Socket("localhost", 8080);
     this.scan = scan;
     this.username = null;
+    this.atualizacaoWorker = new HashMap<>();
   }
 
-  private @NotNull Menu initializaMenu(TaggedConnection conn) {
+  private @NotNull Menu initializaMenu(Demultiplexer conn) {
     var menu = new Menu(this.scan);
     menu.addOpcao("Regista Utilizador", () -> {
       if(this.username != null) {
@@ -36,9 +40,11 @@ public class Cliente {
       stream.writeUTF(username);
       stream.writeUTF(password);
       stream.flush();
+      System.out.println("Ola1");
       conn.send(new TaggedConnection.Frame(1, bytes.toByteArray()));
-      var answer = conn.receive();
-      System.out.println(new String(answer.getData()));
+      System.out.println("Ola");
+      var answer = conn.receive(1);
+      System.out.println(new String(answer));
     });
 
     menu.addOpcao("Login", () -> {
@@ -56,8 +62,8 @@ public class Cliente {
       stream.writeUTF(password);
       stream.flush();
       conn.send(2, bytes.toByteArray());
-      var answer = conn.receive();
-      var asnwerS = new String(answer.getData());
+      var answer = conn.receive(2);
+      var asnwerS = new String(answer);
       System.out.println(asnwerS);
       if (asnwerS.equals("Login efetuado com sucesso")) {
         this.username = username;
@@ -77,9 +83,10 @@ public class Cliente {
       var data = new ByteArrayOutputStream();
       var stream = new DataOutputStream(data);
       ponto.serialize(stream);
+      stream.flush();
       conn.send(3, data.toByteArray());
-      var answer = conn.receive();
-      var bytes = new ByteArrayInputStream(answer.getData());
+      var answer = conn.receive(3);
+      var bytes = new ByteArrayInputStream(answer);
       var streamIn = new DataInputStream(bytes);
       var numPontos = streamIn.readInt();
       for (int i = 0; i < numPontos; ++i) {
@@ -97,9 +104,10 @@ public class Cliente {
         var data = new ByteArrayOutputStream();
         var stream = new DataOutputStream(data);
         ponto.serialize(stream);
+        stream.flush();
         conn.send(4, data.toByteArray());
-        var answer = conn.receive();
-        var bytes = new ByteArrayInputStream(answer.getData());
+        var answer = conn.receive(4);
+        var bytes = new ByteArrayInputStream(answer);
         var streamIn = new DataInputStream(bytes);
         int codigo = streamIn.readInt();
         if (codigo != -1) {
@@ -131,9 +139,9 @@ public class Cliente {
         ponto.serialize(streamOut);
         streamOut.flush();
         conn.send(5, data.toByteArray());
-        var answer = conn.receive();
+        var answer = conn.receive(5);
         try (var streamIn = new DataInputStream(
-                 new ByteArrayInputStream(answer.getData()))) {
+                 new ByteArrayInputStream(answer))) {
           float custo = streamIn.readFloat();
           if (custo < 0) {
             System.out.println("Operacao ocorreu com insucesso");
@@ -166,12 +174,12 @@ public class Cliente {
         streamOut.writeInt(x);
         streamOut.writeInt(y);
         conn.send(6, data.toByteArray());
-        var answer = conn.receive();
-        try (var streamIn = new DataInputStream(new ByteArrayInputStream(answer.getData()))) {
+        var answer = conn.receive(6);
+        try (var streamIn = new DataInputStream(new ByteArrayInputStream(answer))) {
           int length = streamIn.readInt();
           System.out.println("\n------------------Recompensas----------------------");
           for(int i = 0; i < length; ++i) {
-            System.out.println("\nRecompensa nº" + i + ": ");
+            System.out.println("\nutils.Recompensa nº" + i + ": ");
             var pontoInicio = Ponto.deserialize(streamIn);
             var pontoFinal = Ponto.deserialize(streamIn);
             System.out.println("Origem = " + pontoInicio + ", Destino = " + pontoFinal);
@@ -180,16 +188,52 @@ public class Cliente {
         }
       }
     });
+
+    menu.addOpcao("Receber atualizacões de recompensas com origem em um ponto", () -> {
+      if(this.username == null) System.out.println("Precisa de estar autenticado para realizar esta funcionalidade");
+      System.out.println("Insira o X do ponto");
+      int x = Integer.parseInt(this.scan.nextLine());
+      System.out.println("Insira o Y do ponto");
+      int y = Integer.parseInt(this.scan.nextLine());
+      var data = new ByteArrayOutputStream();
+      var streamOut = new DataOutputStream(data);
+      streamOut.writeInt(x);
+      streamOut.writeInt(y);
+      var ponto = new Ponto(x, y);
+      if(this.atualizacaoWorker.containsKey(ponto)) return;
+      conn.send(7, data.toByteArray());
+      var worker = new Thread(new AtualizacaoWorker(conn));
+      this.atualizacaoWorker.put(ponto, worker);
+      worker.start();
+    });
+
+    menu.addOpcao("Deixar de receber atualizacões de recompensas com origem em um ponto", () -> {
+      if(this.username == null) System.out.println("Precisa de estar autenticado para realizar esta funcionalidade");
+      System.out.println("Insira o X do ponto");
+      int x = Integer.parseInt(this.scan.nextLine());
+      System.out.println("Insira o Y do ponto");
+      int y = Integer.parseInt(this.scan.nextLine());
+      var data = new ByteArrayOutputStream();
+      var streamOut = new DataOutputStream(data);
+      streamOut.writeInt(x);
+      streamOut.writeInt(y);
+      var ponto = new Ponto(x, y);
+      if(!this.atualizacaoWorker.containsKey(ponto)) return;
+      conn.send(8, data.toByteArray());
+      var worker = this.atualizacaoWorker.get(ponto);
+      worker.interrupt();
+      this.atualizacaoWorker.remove(ponto);
+    });
     return menu;
   }
 
-  public void run() throws IOException {
-    try (var taggedConnection = new TaggedConnection(this.socket)) {
-
-      var menu = this.initializaMenu(taggedConnection);
+  public void run() {
+    try (var dem = new Demultiplexer(new TaggedConnection(this.socket))) {
+      dem.start();
+      var menu = this.initializaMenu(dem);
       menu.run();
 
-    } catch (IOException e) {
+    } catch (IOException | InterruptedException e) {
       throw new RuntimeException(e);
     }
   }

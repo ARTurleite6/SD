@@ -1,18 +1,17 @@
 import org.jetbrains.annotations.NotNull;
 import utils.Ponto;
+import utils.Recompensa;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.*;
+import java.util.stream.Collectors;
 
 public class Parque {
-    public Lock lock = new ReentrantLock();
     private final Ponto localizacao;
     private int numeroTrotinetes;
     private boolean recompensa;
     private final Set<Ponto> vizinhos;
+
+    private final Set<Ponto> recompensas = new HashSet<>();
 
     public Parque() {
         this.localizacao = new Ponto();
@@ -55,6 +54,19 @@ public class Parque {
         }
         System.out.println("pontos = " + pontos);
         return pontos;
+    }
+
+    public void addRecompensa(Ponto p) {
+        this.recompensas.add(p);
+    }
+
+    public void removeRecompensa(Ponto p) {
+        this.recompensas.remove(p);
+    }
+
+    public List<Recompensa> getRecompensas() {
+        if(this.numeroTrotinetes < 2) return new ArrayList<>();
+        return this.recompensas.stream().map(ponto -> new Recompensa(this.localizacao, ponto, 0)).collect(Collectors.toList());
     }
 
     public Set<Ponto> getVizinhos() {
@@ -102,14 +114,13 @@ public class Parque {
 
         if (getNumeroTrotinetes() != parque.getNumeroTrotinetes()) return false;
         if (recompensa != parque.recompensa) return false;
-        if (!lock.equals(parque.lock)) return false;
         if (!getLocalizacao().equals(parque.getLocalizacao())) return false;
         return getVizinhos().equals(parque.getVizinhos());
     }
 
     @Override
     public int hashCode() {
-        int result = lock.hashCode();
+        int result = 7;
         result = 31 * result + getLocalizacao().hashCode();
         result = 31 * result + getNumeroTrotinetes();
         result = 31 * result + (recompensa ? 1 : 0);
@@ -120,7 +131,6 @@ public class Parque {
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("Parque{");
-        sb.append("lock=").append(lock);
         sb.append(", localizacao=").append(localizacao);
         sb.append(", numeroTrotinetes=").append(numeroTrotinetes);
         sb.append(", recompensa=").append(recompensa);
