@@ -18,6 +18,12 @@ public class ServerWorker implements Runnable {
 
     private final Map<Ponto, Thread> atualizacoesCliente;
 
+    /**
+     * Metodo que inicializa ServerWorker
+     * @param gestaoReservas Facade para gestao de reservas
+     * @param socket socket do cliente
+     * @throws IOException caso ocorra erro na criacao do socket
+     */
     public ServerWorker(GestaoReservas gestaoReservas, Socket socket) throws IOException {
         this.gestaoReservas = gestaoReservas;
         this.taggedConnection = new TaggedConnection(socket);
@@ -26,6 +32,9 @@ public class ServerWorker implements Runnable {
         this.atualizacoesCliente = new HashMap<>();
     }
 
+    /**
+     * Metodo que inicializa os vários handlers para cada pedido do cliente
+     */
     private void initHandlers() {
         this.handlers.add(data -> {
             var bytes = new ByteArrayInputStream(data.getData());
@@ -156,17 +165,27 @@ public class ServerWorker implements Runnable {
                         streamOut.flush();
                         this.taggedConnection.send(10, byteArray.toByteArray());
                     }
-                } catch (InterruptedException | IOException e) {
-                    System.out.println("Deu erro");
-                    System.out.println(e.getMessage());
-                    throw new RuntimeException(e);
+                } catch (InterruptedException | IOException ignored) {
                 }
             });
             this.atualizacoesCliente.put(ponto, worker);
             worker.start();
         });
+
+        this.handlers.add(data -> {
+            var bytes = new ByteArrayInputStream(data.getData());
+            var streamIn = new DataInputStream(bytes);
+            Ponto ponto = Ponto.deserialize(streamIn);
+            this.atualizacoesCliente.get(ponto).interrupt();
+            this.atualizacoesCliente.remove(ponto);
+            this.gestaoReservas.cancelaRecebimentoRecompensa(ponto);
+        });
+
     }
 
+    /**
+     * Metodo que inicia servidor worker para cliente
+     */
     @Override
     public void run() {
         this.initHandlers();

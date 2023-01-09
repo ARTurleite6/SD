@@ -6,14 +6,40 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
 public class Viagem {
+    /**
+     * Codigo da viagem
+     */
     private final int codigo;
+    /**
+     * Ponto inicial da viagem
+     */
     private final Ponto pontoInicial;
+    /**
+     * Ponto final da viagem
+     */
     private Ponto pontoFinal;
+    /**
+     * Tempo de começo da viagem
+     */
     private final LocalDateTime tempoComeco;
+    /**
+     * Duração da viagem
+     */
     private int duracao;
+    /**
+     * Custo de uma viagem
+     */
     private float custo;
+    /**
+     * Recompensa associada à viagem
+     */
     private Recompensa recompensa;
 
+    /**
+     * Construtor parametrizado da viagem
+     * @param codigo codigo da viagem
+     * @param pontoInicial ponto inicial da viagem
+     */
     public Viagem(int codigo, Ponto pontoInicial) {
         this.codigo = codigo;
         this.pontoInicial = pontoInicial;
@@ -24,6 +50,10 @@ public class Viagem {
         this.recompensa = null;
     }
 
+    /**
+     * Construtor de cópia de viagem
+     * @param viagem viagem a copiar
+     */
     public Viagem(@NotNull Viagem viagem) {
         this.codigo = viagem.getCodigo();
         this.pontoInicial = viagem.getPontoInicial();
@@ -32,18 +62,27 @@ public class Viagem {
         this.recompensa = viagem.getRecompensa();
     }
 
-    public int getDuracao() {
-        return this.duracao;
-    }
-
+    /**
+     * Metodo que retorna custo de uma viagem
+     * @return custo da viagem
+     */
     public float getCusto() {
         return this.custo;
     }
 
+    /**
+     * Metodo que retorna o ponto destino da viagem
+     * @return ponto destino da viagem
+     */
     public Ponto getPontoFinal() {
         return this.pontoFinal;
     }
 
+    /**
+     * Metodo que sinaliza que a viagem já terminou, e regista o custo da viagem
+     * @param pontoFinal ponto final da viagem
+     * @param tempoFinal tempo final da viagem
+     */
     public void terminaViagem(Ponto pontoFinal, LocalDateTime tempoFinal) {
         this.pontoFinal = pontoFinal;
         this.duracao = (int) ChronoUnit.SECONDS.between(this.tempoComeco, tempoFinal);
@@ -52,19 +91,34 @@ public class Viagem {
         this.custo += duracao * (0.15 / 60.0);
     }
 
+    /**
+     * Metodo que adiciona uma recompensa à viagem
+     */
     public void adicionaRecompensa() {
         float valorRecompensa = (float) ((this.pontoInicial.distancia(this.pontoFinal) * 0.05) - (this.duracao * 0.01));
         this.recompensa = new Recompensa(this.pontoInicial, this.pontoFinal, valorRecompensa);
     }
 
+    /**
+     * Metodo que retorna a recompensa da viagem
+     * @return recompensa da viagem
+     */
     public Recompensa getRecompensa() {
         return this.recompensa;
     }
 
+    /**
+     * Metodo que retorna o codigo da viagem
+     * @return
+     */
     public int getCodigo() {
         return codigo;
     }
 
+    /**
+     * Metodo que retorna o ponto origem da viagem
+     * @return
+     */
     public Ponto getPontoInicial() {
         return pontoInicial;
     }

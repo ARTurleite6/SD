@@ -5,21 +5,38 @@ import utils.Recompensa;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * Classe que representa um ponto do mapa
+ */
 public class Parque {
+    /**
+     * localização do parque no mapa
+     */
     private final Ponto localizacao;
+    /**
+     * Numero de trotinetes num determinado parque do mapa
+     */
     private int numeroTrotinetes;
+    /**
+     * Verifica se pode existir alguma recompensa no parque do mapa
+     */
     private boolean recompensa;
+    /**
+     * Lista de pontos vizinhos do parque do mapa
+     */
     private final Set<Ponto> vizinhos;
 
+    /**
+     * Lista com Pontos que gerarão recompensa deste ponto para o proximo
+     */
     private final Set<Ponto> recompensas = new HashSet<>();
 
-    public Parque() {
-        this.localizacao = new Ponto();
-        this.numeroTrotinetes = 0;
-        this.recompensa = false;
-        this.vizinhos = new HashSet<>();
-    }
-
+    /**
+     * Construtor parametrizado do Parque
+     * @param localizacao localização do parque no mapa
+     * @param D diâmetro a ser considerado na app
+     * @param N numero de pontos do mapa
+     */
     public Parque(Ponto localizacao, int D, int N) {
         this.localizacao = localizacao;
         this.numeroTrotinetes = 0;
@@ -27,20 +44,12 @@ public class Parque {
         this.vizinhos = this.loadVizinhos(D, N);
     }
 
-    public Parque(Ponto localizacao, List<Ponto> vizinhos) {
-        this.localizacao = localizacao;
-        this.numeroTrotinetes = 0;
-        this.recompensa = false;
-        this.vizinhos = new HashSet<>(vizinhos);
-    }
-
-    public Parque(@NotNull Parque p) {
-        this.localizacao = p.getLocalizacao();
-        this.numeroTrotinetes = p.getNumeroTrotinetes();
-        this.recompensa = p.hasRecompensa();
-        this.vizinhos = p.getVizinhos();
-    }
-
+    /**
+     * Metodo que dá load dos vizinhos de um parque
+     * @param raio raio a ser considerado
+     * @param tam tamanho a ser considerado
+     * @return lista de pontos vizinhos
+     */
     private Set<Ponto> loadVizinhos(int raio, int tam) {
         Set<Ponto> pontos = new HashSet<>();
         for(int y = Math.max(this.localizacao.getY() - raio, 0); y < tam && y <= this.localizacao.getY() + raio; ++y) {
@@ -56,27 +65,52 @@ public class Parque {
         return pontos;
     }
 
+    /**
+     * Metodo que adiciona um ponto para onde terá recompensa
+     * @param p ponto onde terá recompensa através de uma viagem
+     */
     public void addRecompensa(Ponto p) {
         this.recompensas.add(p);
     }
 
+    /**
+     * Metodo que remove ponto como possivel recompensa numa viagem
+     * @param p ponto a ser adicionado
+     */
     public void removeRecompensa(Ponto p) {
         this.recompensas.remove(p);
     }
 
+    /**
+     * Metodo que retorna a lista de recompensas a partir deste ponto
+     * @return lista de recompensas a partir deste ponto
+     */
     public List<Recompensa> getRecompensas() {
         if(this.numeroTrotinetes < 2) return new ArrayList<>();
         return this.recompensas.stream().map(ponto -> new Recompensa(this.localizacao, ponto, 0)).collect(Collectors.toList());
     }
 
+    /**
+     * Lista com pontos vizinhos
+     * @return pontos vizinhos
+     */
     public Set<Ponto> getVizinhos() {
         return new HashSet<>(this.vizinhos);
     }
 
+    /**
+     * Testa se um ponto é vizinho deste parque
+     * @param p ponto a testar
+     * @return true se for vizinho, false caso contrário
+     */
     public boolean isVizinho(Ponto p) {
         return this.vizinhos.contains(p);
     }
 
+    /**
+     * Metodo que verifica se tem recompensa num ponto(não possui pontos vizinhos com trotinetes num raio D)
+     * @return
+     */
     public boolean hasRecompensa() {
         return this.recompensa;
     }
@@ -91,10 +125,6 @@ public class Parque {
 
     public int getNumeroTrotinetes() {
         return this.numeroTrotinetes;
-    }
-
-    public boolean podeReservar() {
-        return this.numeroTrotinetes > 0;
     }
 
     public void reservaTrotinete() {

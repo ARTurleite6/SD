@@ -24,6 +24,11 @@ public class Cliente {
     this.atualizacaoWorker = new HashMap<>();
   }
 
+  /**
+   * Metodo que inicializa o menu do texto do cliente.
+   * @param conn conexão do cliente com o servidor
+   * @return Menu do cliente
+   */
   private @NotNull Menu initializaMenu(Demultiplexer conn) {
     var menu = new Menu(this.scan);
     menu.addOpcao("Regista Utilizador", () -> {

@@ -7,16 +7,40 @@ import java.util.*;
 import java.util.concurrent.locks.*;
 import java.util.stream.Stream;
 
+/**
+ * Classe que Realiza a gestão de reservas do sistema
+ */
 public class GestaoReservas {
+    /**
+     * Tamanho do mapa, alterar esta variável, gera mapas maiores
+     */
     public static final int N = 10;
-    public static final int D = 1;
+    /**
+     * Raio D a considerar no sistema
+     */
+    public static final int D = 2;
+    /**
+     * Mapa da aplicacao
+     */
     private final Parque[][] mapa;
 
+    /**
+     * Sistema que lida com a gestão de recompensas
+     */
     private final GestaoRecompensas gestaoRecompensas;
 
+    /**
+     * Lock que lida com o controlo de concorrência do Map dos Users
+     */
     private final ReadWriteLock usersLock = new ReentrantReadWriteLock();
+    /**
+     * Map que guarda os users registados no sistema
+     */
     private final Map<String, User> users;
 
+    /**
+     * Metodo que inicializa o estado do sistema
+     */
     public GestaoReservas() {
         this.mapa = new Parque[N][N];
         this.users = new HashMap<>();
@@ -34,6 +58,9 @@ public class GestaoReservas {
         }).start();
     }
 
+    /**
+     * Metodo que dá load ao mapa, distribuindo as trotinetes de forma dispar pelo mapa
+     */
     private void loadMap() {
         for(int y = 0; y < N; ++y) {
             for(int x = 0; x < N; ++x) {
@@ -41,7 +68,7 @@ public class GestaoReservas {
             }
         }
         var rand = new Random();
-        for(int i = 0; i < N; ++i) {
+        for(int i = 0; i < 2 * N; ++i) {
             //generate random number between 0 and N
             var x = rand.nextInt(N);
             var y = rand.nextInt(N);
@@ -50,6 +77,12 @@ public class GestaoReservas {
 
     }
 
+    /**
+     * Metodo que regita um utilizador
+     * @param username username do utilizador
+     * @param password password do utilizador
+     * @return true se for possivel registar o utilizador, false caso contrario
+     */
     public boolean registaUtilizador(String username, String password) {
         try {
             this.usersLock.writeLock().lock();
@@ -61,6 +94,12 @@ public class GestaoReservas {
         }
     }
 
+    /**
+     * Metodo que autentica um utilizador
+     * @param username username do utilizador
+     * @param password password do utilizador
+     * @return true se autenticação for bem sucedida, falso caso contrário
+     */
     public boolean login(String username, String password) {
         try {
             this.usersLock.readLock().lock();
@@ -72,6 +111,10 @@ public class GestaoReservas {
         }
     }
 
+    /**
+     * Metodo que realiza logou to utilizador
+     * @param username username do utilizador
+     */
     public void logOut(String username) {
         try {
             this.usersLock.readLock().lock();
@@ -84,13 +127,23 @@ public class GestaoReservas {
         }
     }
 
+    /**
+     * Metodo que gera um codigo aleatório para a viagem
+     * @return codigo para ser utilizado na viagem
+     */
     private int geraCodigo() {
-        var codigo = -1;
         var rand = new Random();
-        codigo = rand.nextInt();
+        int codigo = rand.nextInt(1, 100_000_000);
         return codigo;
     }
 
+    /**
+     * Metodo que estaciona uma trotinete
+     * @param username username do utilizador
+     * @param codigo codigo da viagem
+     * @param pontoEstacionamento ponto onde estacionar a trotinete
+     * @return Viagem relativa ao estacionamento que utilizador vai realizar
+     */
     public Viagem estacionaTrotinete(String username, int codigo, @NotNull Ponto pontoEstacionamento) {
         Parque parque = null;
         Parque parqueInicial = null;
@@ -121,6 +174,12 @@ public class GestaoReservas {
         }
     }
 
+    /**
+     * Metodo que inicia uma viagem reservando uma trotinete num determinado ponto
+     * @param username username do utilizador da viagem
+     * @param p ponto onde se deseja realizar a reserva de uma trotinete
+     * @return Viagem criada
+     */
     public Viagem reservaTrotinete(String username, @NotNull Ponto p) {
         int x = p.getX();
         int y = p.getY();
@@ -152,10 +211,11 @@ public class GestaoReservas {
         }
     }
 
-    public Set<Ponto> getPontosVizinhoPonto(@NotNull Ponto ponto) {
-        return this.mapa[ponto.getY()][ponto.getX()].getVizinhos();
-    }
-
+    /**
+     * Metodo que retorna uma lista com pontos vizinhos que possuem pelo menos uma trotinete
+     * @param p ponto onde se deseja realizar uma reserva
+     * @return Lista com pontos vizinhos que possuem pelo menos uma trotinete
+     */
     public List<Ponto> getPontosVizinhosComTrotinete(@NotNull Ponto p) {
         int x = p.getX();
         int y = p.getY();
@@ -218,6 +278,10 @@ public class GestaoReservas {
         }
     }
 
+    /**
+     * Metodo que regista que um utilizador deseja receber atualizacoes
+     * @param ponto ponto onde se deseja receber atualizacoes
+     */
     public void registaRecebimentoRecompensa(@NotNull Ponto ponto) {
         this.gestaoRecompensas.registaReceberAtualizacoes(ponto);
     }
