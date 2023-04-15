@@ -1,1 +1,3 @@
-Trabalho apra Sistemas Distribuidos 22/23
+Trabalho para Sistemas Distribuidos 22/23
+
+Grade: 19/20
